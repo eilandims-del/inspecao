@@ -186,40 +186,36 @@ function buildKml(rows, idx) {
     const inst = (r.INSTALACAO_NOVA ?? "").toString();
 
     const placemark = `
-<Placemark>
-  <name>${escapeXml(dispositivo)}</name>
-
-  <Style>
-    <IconStyle>
-      <color>${color}</color>
-      <scale>1.8</scale>
-      <Icon><href>${PUSH_PIN}</href></Icon>
-    </IconStyle>
-  </Style>
-
-  <description><![CDATA[
-    <div style="font-family: Arial; font-size: 13px;">
-      <b>CATEGORIA:</b> ${escapeXml(cat)}<br/>
-      <b>TIPO:</b> ${escapeXml(tipo)}<br/>
-      <b>DISPOSITIVO_PROTECAO / ELEMENTO:</b> ${escapeXml(dispositivo)}<br/>
-      <b>NÚMERO OT:</b> ${escapeXml(ot || "-")}<br/>
-      <b>ALIMENTADOR:</b> ${escapeXml(alim || "-")}<br/>
-      <b>INSTALACAO_NOVA:</b> ${escapeXml(inst || "-")}<br/>
-    </div>
-  ]]></description>
-
-  <ExtendedData>
-    <Data name="CATEGORIA"><value>${escapeXml(cat)}</value></Data>
-    <Data name="TIPO"><value>${escapeXml(tipo)}</value></Data>
-    <Data name="DISPOSITIVO"><value>${escapeXml(dispositivo)}</value></Data>
-    <Data name="NUMERO_OT"><value>${escapeXml(ot)}</value></Data>
-    <Data name="ALIMENTADOR"><value>${escapeXml(alim)}</value></Data>
-    <Data name="INSTALACAO_NOVA"><value>${escapeXml(inst)}</value></Data>
-  </ExtendedData>
-
-  <Point><coordinates>${geo.lon},${geo.lat},0</coordinates></Point>
-</Placemark>
-`;
+    <Placemark>
+      <name>${escapeXml(r.DISPOSITIVO)}</name>   <!-- 🔥 FORÇA usar DISPOSITIVO -->
+    
+      <Style>
+        <IconStyle>
+          <color>${color}</color>
+          <scale>1.8</scale>
+          <Icon>
+            <href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href>
+          </Icon>
+        </IconStyle>
+      </Style>
+    
+      <description><![CDATA[
+        <div style="font-family: Arial; font-size: 13px;">
+          <b>CATEGORIA:</b> ${escapeXml(cat)}<br/>
+          <b>TIPO:</b> ${escapeXml(tipo)}<br/>
+          <b>DISPOSITIVO_PROTECAO:</b> ${escapeXml(r.DISPOSITIVO)}<br/>
+          <b>NÚMERO OT:</b> ${escapeXml(r.NUMERO_OT || "-")}<br/>
+          <b>ALIMENTADOR:</b> ${escapeXml(r.ALIMENTADOR || "-")}<br/>
+          <b>INSTALACAO_NOVA:</b> ${escapeXml(r.INSTALACAO_NOVA || "-")}<br/>
+        </div>
+      ]]></description>
+    
+      <Point>
+        <coordinates>${geo.lon},${geo.lat},0</coordinates>
+      </Point>
+    </Placemark>
+    `;
+    
 
     sub.get(tipo).push(placemark);
   }
