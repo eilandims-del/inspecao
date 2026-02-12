@@ -26,7 +26,6 @@ function sheetToRows(wb, sheetName) {
   return XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 }
 
-
 function colIndex(letter) {
   let n = 0;
   for (const ch of letter.toUpperCase()) {
@@ -76,21 +75,27 @@ async function readKmlIndex(file) {
 }
 
 function buildFromInspecao(rows) {
-  const iE = colIndex("E");
-  const iH = colIndex("H");
-  const iAP = colIndex("AP");
+  const iE  = colIndex("E");   // Instalacao_nova
+  const iH  = colIndex("H");   // Número OT
+  const iAP = colIndex("AP");  // DISPOSITIVO_PROTECAO
 
   return rows.slice(1).map(row => {
-    const disp = row[iAP] ?? "";
+    const dispProt = String(row[iAP] ?? "").trim(); // DISPOSITIVO_PROTECAO (AP)
+    const inst     = String(row[iE]  ?? "").trim(); // Instalacao_nova (E) => na prática é o alimentador/instalação
+    const ot       = String(row[iH]  ?? "").trim();
+
+    const key = normalizeKey(dispProt);             // diff por DISPOSITIVO_PROTECAO
+    if (!key) return null;
+
     return {
-      key: normalizeKey(disp),
+      key,
       TIPO: "INSPECAO",
-      DISPOSITIVO: disp,
-      INSTALACAO_NOVA: row[iE] ?? "",
-      NUMERO_OT: row[iH] ?? "",
-      ALIMENTADOR: ""
+      DISPOSITIVO_PROTECAO: dispProt,
+      INSTALACAO_NOVA: inst,
+      NUMERO_OT: ot,
+      ALIMENTADOR: "" // inspeção não traz coluna de alimentador
     };
-  }).filter(r => r.key);
+  }).filter(Boolean);
 }
 
 function buildFromReiteradas(rows) {
@@ -98,14 +103,14 @@ function buildFromReiteradas(rows) {
   const iC = colIndex("C");
 
   return rows.slice(1).map(row => {
-    const disp = row[iA] ?? "";
+    const disp = String(row[iA] ?? "").trim(); // Elemento
     return {
       key: normalizeKey(disp),
       TIPO: "REITERADA",
-      DISPOSITIVO: disp,
+      DISPOSITIVO_PROTECAO: disp,  // reaproveita campo para mostrar no popup
       INSTALACAO_NOVA: "",
       NUMERO_OT: "",
-      ALIMENTADOR: row[iC] ?? ""
+      ALIMENTADOR: String(row[iC] ?? "").trim()
     };
   }).filter(r => r.key);
 }
@@ -131,7 +136,6 @@ function escapeXml(s) {
 }
 
 function buildKml(rows, idx) {
-
   const CATEGORY_BY_ALIM = {
     // CANINDÉ
     CND01C1:"Canindé", CND01C2:"Canindé", CND01C3:"Canindé", CND01C4:"Canindé", CND01C5:"Canindé", CND01C6:"Canindé",
@@ -160,11 +164,20 @@ function buildKml(rows, idx) {
     CAT01C5:"Crateús", CAT01C6:"Crateús", CAT01C7:"Crateús"
   };
 
-  function detectCategory(row) {
-    const alim = (row.ALIMENTADOR || "").toUpperCase().trim();
-    if (CATEGORY_BY_ALIM[alim]) return CATEGORY_BY_ALIM[alim];
+  // ---- Coordenada: tenta por DISPOSITIVO_PROTECAO, depois INSTALACAO_NOVA, depois ALIMENTADOR
+  function findGeoForRow(r) {
+    const k1 = normalizeKey(r.DISPOSITIVO_PROTECAO || "");
+    const k2 = normalizeKey(r.INSTALACAO_NOVA || "");
+    const k3 = normalizeKey(r.ALIMENTADOR || "");
+    return idx.get(k1) || idx.get(k2) || idx.get(k3) || null;
+  }
 
-    const prefix = (row.DISPOSITIVO || "").toUpperCase().substring(0,3);
+  // ---- Categoria: usa ALIMENTADOR; se vazio, usa INSTALACAO_NOVA (porque é onde vem CND01C4 etc)
+  function detectCategory(row) {
+    const alimRef = String(row.ALIMENTADOR || row.INSTALACAO_NOVA || "").toUpperCase().trim();
+    if (alimRef && CATEGORY_BY_ALIM[alimRef]) return CATEGORY_BY_ALIM[alimRef];
+
+    const prefix = String(alimRef || row.DISPOSITIVO_PROTECAO || "").toUpperCase().substring(0,3);
 
     const prefixMap = {
       CND:"Canindé", INP:"Canindé", BVG:"Canindé", MCA:"Canindé",
@@ -178,11 +191,22 @@ function buildKml(rows, idx) {
   }
 
   const groups = {};
+  const notFoundRows = [];
+
   const PUSH_PIN = "http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png";
 
   for (const r of rows) {
-    const geo = idx.get(r.key);
-    if (!geo) continue;
+    const geo = findGeoForRow(r);
+    if (!geo) {
+      notFoundRows.push({
+        TIPO: r.TIPO,
+        DISPOSITIVO_PROTECAO: r.DISPOSITIVO_PROTECAO,
+        INSTALACAO_NOVA: r.INSTALACAO_NOVA,
+        ALIMENTADOR: r.ALIMENTADOR,
+        NUMERO_OT: r.NUMERO_OT
+      });
+      continue;
+    }
 
     const cat = detectCategory(r);
     if (!groups[cat]) groups[cat] = { INSPEÇÃO:[], REITERADA:[] };
@@ -190,9 +214,12 @@ function buildKml(rows, idx) {
     const tipo = r.TIPO === "INSPECAO" ? "INSPEÇÃO" : "REITERADA";
     const color = tipo === "INSPEÇÃO" ? "ff800080" : "ffffffff";
 
+    const nomePino = String(r.DISPOSITIVO_PROTECAO || "").trim(); // ✅ SEMPRE DISPOSITIVO_PROTECAO
+    const alimRef = String(r.ALIMENTADOR || r.INSTALACAO_NOVA || "").trim();
+
     groups[cat][tipo].push(`
 <Placemark>
-  <name>${r.DISPOSITIVO}</name>
+  <name>${escapeXml(nomePino)}</name>
   <Style>
     <IconStyle>
       <color>${color}</color>
@@ -201,11 +228,12 @@ function buildKml(rows, idx) {
     </IconStyle>
   </Style>
   <description><![CDATA[
-    <b>CATEGORIA:</b> ${cat}<br/>
-    <b>TIPO:</b> ${tipo}<br/>
-    <b>DISPOSITIVO:</b> ${r.DISPOSITIVO}<br/>
-    <b>OT:</b> ${r.NUMERO_OT || "-"}<br/>
-    <b>ALIMENTADOR:</b> ${r.ALIMENTADOR || "-"}<br/>
+    <b>CATEGORIA:</b> ${escapeXml(cat)}<br/>
+    <b>TIPO:</b> ${escapeXml(tipo)}<br/>
+    <b>DISPOSITIVO_PROTECAO / ELEMENTO:</b> ${escapeXml(nomePino)}<br/>
+    <b>OT:</b> ${escapeXml(r.NUMERO_OT || "-")}<br/>
+    <b>ALIMENTADOR (ref):</b> ${escapeXml(alimRef || "-")}<br/>
+    <b>INSTALACAO_NOVA:</b> ${escapeXml(r.INSTALACAO_NOVA || "-")}<br/>
   ]]></description>
   <Point><coordinates>${geo.lon},${geo.lat},0</coordinates></Point>
 </Placemark>
@@ -218,7 +246,7 @@ function buildKml(rows, idx) {
     .filter(c => groups[c])
     .map(c => `
 <Folder>
-  <name>${c}</name>
+  <name>${escapeXml(c)}</name>
 
   <Folder>
     <name>🟣 INSPEÇÃO</name>
@@ -235,22 +263,42 @@ function buildKml(rows, idx) {
   const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
+  <name>Resultado - Reiteradas x Inspeção</name>
 ${folders}
 </Document>
 </kml>`;
 
-  return { kml, missing: 0, notFoundRows: [] };
+  return { kml, missing: notFoundRows.length, notFoundRows };
 }
 
-
-
-function download(text, filename, type) {
-  const blob = new Blob([text], { type });
+function download(data, filename, type) {
+  const blob = new Blob([data], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadXlsxNotFound(rows, filename) {
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "NAO_ENCONTRADOS");
+
+  const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+
+  const blob = new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
   URL.revokeObjectURL(url);
 }
 
@@ -266,22 +314,30 @@ $("btnGerarPlanilha").addEventListener("click", async () => {
   setStatus("Processando planilhas...");
 
   const wbIns = await readXlsxWorkbook(fIns);
-  const insRows = sheetToRows(wbIns, "PBM-CE - Inspecao"); // ✅ força a aba certa
+  const insRows = sheetToRows(wbIns, "PBM-CE - Inspecao");
   const ins = buildFromInspecao(insRows);
-  
+
   const wbRei = await readXlsxWorkbook(fRei);
-  const reiRows = sheetToRows(wbRei, wbRei.SheetNames[0]); // reiteradas = primeira aba (padrão)
+  const reiRows = sheetToRows(wbRei, wbRei.SheetNames[0]);
   const rei = buildFromReiteradas(reiRows);
-  
 
   mergedRows = mergeAndDiff(ins, rei);
 
-  const ws = XLSX.utils.json_to_sheet(mergedRows);
+  // Planilha resultado: mostra claramente os campos
+  const exportRows = mergedRows.map(r => ({
+    TIPO: r.TIPO,
+    DISPOSITIVO_PROTECAO: r.DISPOSITIVO_PROTECAO,
+    ALIMENTADOR: r.ALIMENTADOR,
+    INSTALACAO_NOVA: r.INSTALACAO_NOVA,
+    NUMERO_OT: r.NUMERO_OT
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(exportRows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "RESULTADO");
 
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-  download(buf, "resultado.xlsx", "application/octet-stream");
+  download(buf, "resultado.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
   $("btnGerarKml").disabled = false;
   setStatus("Planilha gerada com sucesso.");
@@ -294,12 +350,25 @@ $("btnGerarKml").addEventListener("click", async () => {
     return;
   }
 
+  if (!mergedRows?.length) {
+    setStatus("Gere a planilha primeiro.");
+    return;
+  }
+
   setStatus("Gerando KML final...");
 
   const idx = await readKmlIndex(fKml);
-  const { kml, missing } = buildKml(mergedRows, idx);
+  const { kml, missing, notFoundRows } = buildKml(mergedRows, idx);
 
   download(kml, "resultado_google_earth.kml", "application/vnd.google-earth.kml+xml");
 
-  setStatus(`KML gerado com sucesso.\nSem coordenadas encontradas: ${missing}`);
+  if (missing > 0) {
+    downloadXlsxNotFound(notFoundRows, "nao_encontrados_no_kml.xlsx");
+  }
+
+  setStatus(
+    `KML gerado com sucesso.\n` +
+    `Sem coordenadas encontradas: ${missing}\n` +
+    (missing > 0 ? `➡️ Baixei também: nao_encontrados_no_kml.xlsx` : "")
+  );
 });
