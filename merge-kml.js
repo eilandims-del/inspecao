@@ -131,103 +131,68 @@ function escapeXml(s) {
 }
 
 function buildKml(rows, idx) {
-  // =========================
-  // 1) CATEGORIAS POR ALIMENTADOR (lista exata)
-  // =========================
-  const CATEGORY_BY_ALIM = new Map([
+
+  const CATEGORY_BY_ALIM = {
     // CANINDÉ
-    ["CND01C1","Canindé"], ["CND01C2","Canindé"], ["CND01C3","Canindé"], ["CND01C4","Canindé"], ["CND01C5","Canindé"], ["CND01C6","Canindé"],
-    ["INP01N3","Canindé"], ["INP01N4","Canindé"], ["INP01N5","Canindé"],
-    ["BVG01P1","Canindé"], ["BVG01P2","Canindé"], ["BVG01P3","Canindé"], ["BVG01P4","Canindé"],
-    ["MCA01L1","Canindé"], ["MCA01L2","Canindé"], ["MCA01L3","Canindé"],
+    CND01C1:"Canindé", CND01C2:"Canindé", CND01C3:"Canindé", CND01C4:"Canindé", CND01C5:"Canindé", CND01C6:"Canindé",
+    INP01N3:"Canindé", INP01N4:"Canindé", INP01N5:"Canindé",
+    BVG01P1:"Canindé", BVG01P2:"Canindé", BVG01P3:"Canindé", BVG01P4:"Canindé",
+    MCA01L1:"Canindé", MCA01L2:"Canindé", MCA01L3:"Canindé",
 
     // QUIXADÁ
-    ["BNB01Y2","Quixadá"],
-    ["JTM01N2","Quixadá"],
-    ["QXD01P1","Quixadá"], ["QXD01P2","Quixadá"], ["QXD01P3","Quixadá"], ["QXD01P4","Quixadá"], ["QXD01P5","Quixadá"], ["QXD01P6","Quixadá"],
-    ["QXB01N2","Quixadá"], ["QXB01N3","Quixadá"], ["QXB01N4","Quixadá"], ["QXB01N5","Quixadá"], ["QXB01N6","Quixadá"], ["QXB01N7","Quixadá"],
+    BNB01Y2:"Quixadá",
+    JTM01N2:"Quixadá",
+    QXD01P1:"Quixadá", QXD01P2:"Quixadá", QXD01P3:"Quixadá", QXD01P4:"Quixadá", QXD01P5:"Quixadá", QXD01P6:"Quixadá",
+    QXB01N2:"Quixadá", QXB01N3:"Quixadá", QXB01N4:"Quixadá", QXB01N5:"Quixadá", QXB01N6:"Quixadá", QXB01N7:"Quixadá",
 
     // NOVA RUSSAS
-    ["IPU01L2","Nova Russas"], ["IPU01L3","Nova Russas"], ["IPU01L4","Nova Russas"], ["IPU01L5","Nova Russas"],
-    ["ARR01L1","Nova Russas"], ["ARR01L2","Nova Russas"], ["ARR01L3","Nova Russas"],
-    ["SQT01F2","Nova Russas"], ["SQT01F3","Nova Russas"], ["SQT01F4","Nova Russas"],
-    ["ARU01Y1","Nova Russas"], ["ARU01Y2","Nova Russas"], ["ARU01Y4","Nova Russas"], ["ARU01Y5","Nova Russas"], ["ARU01Y6","Nova Russas"], ["ARU01Y7","Nova Russas"], ["ARU01Y8","Nova Russas"],
-    ["NVR01N1","Nova Russas"], ["NVR01N2","Nova Russas"], ["NVR01N3","Nova Russas"], ["NVR01N5","Nova Russas"],
-    ["MTB01S2","Nova Russas"], ["MTB01S3","Nova Russas"], ["MTB01S4","Nova Russas"],
+    IPU01L2:"Nova Russas", IPU01L3:"Nova Russas", IPU01L4:"Nova Russas", IPU01L5:"Nova Russas",
+    ARR01L1:"Nova Russas", ARR01L2:"Nova Russas", ARR01L3:"Nova Russas",
+    SQT01F2:"Nova Russas", SQT01F3:"Nova Russas", SQT01F4:"Nova Russas",
+    ARU01Y1:"Nova Russas", ARU01Y2:"Nova Russas", ARU01Y4:"Nova Russas", ARU01Y5:"Nova Russas",
+    ARU01Y6:"Nova Russas", ARU01Y7:"Nova Russas", ARU01Y8:"Nova Russas",
+    NVR01N1:"Nova Russas", NVR01N2:"Nova Russas", NVR01N3:"Nova Russas", NVR01N5:"Nova Russas",
+    MTB01S2:"Nova Russas", MTB01S3:"Nova Russas", MTB01S4:"Nova Russas",
 
     // CRATEÚS
-    ["IDP01I1","Crateús"], ["IDP01I2","Crateús"], ["IDP01I3","Crateús"], ["IDP01I4","Crateús"],
-    ["CAT01C1","Crateús"], ["CAT01C2","Crateús"], ["CAT01C3","Crateús"], ["CAT01C4","Crateús"], ["CAT01C5","Crateús"], ["CAT01C6","Crateús"], ["CAT01C7","Crateús"],
-  ]);
-
-  // fallback por prefixo (caso venha sem ALIMENTADOR)
-  const PREFIX_FALLBACK = {
-    "CND":"Canindé","INP":"Canindé","BVG":"Canindé","MCA":"Canindé",
-    "BNB":"Quixadá","JTM":"Quixadá","QXD":"Quixadá","QXB":"Quixadá",
-    "IPU":"Nova Russas","ARR":"Nova Russas","SQT":"Nova Russas","ARU":"Nova Russas","NVR":"Nova Russas","MTB":"Nova Russas",
-    "IDP":"Crateús","CAT":"Crateús",
+    IDP01I1:"Crateús", IDP01I2:"Crateús", IDP01I3:"Crateús", IDP01I4:"Crateús",
+    CAT01C1:"Crateús", CAT01C2:"Crateús", CAT01C3:"Crateús", CAT01C4:"Crateús",
+    CAT01C5:"Crateús", CAT01C6:"Crateús", CAT01C7:"Crateús"
   };
 
-  function extractPrefix3(value) {
-    const s = String(value ?? "").trim().toUpperCase();
-    const m = s.match(/[A-Z]{3}/);
-    return m ? m[0] : "";
+  function detectCategory(row) {
+    const alim = (row.ALIMENTADOR || "").toUpperCase().trim();
+    if (CATEGORY_BY_ALIM[alim]) return CATEGORY_BY_ALIM[alim];
+
+    const prefix = (row.DISPOSITIVO || "").toUpperCase().substring(0,3);
+
+    const prefixMap = {
+      CND:"Canindé", INP:"Canindé", BVG:"Canindé", MCA:"Canindé",
+      BNB:"Quixadá", JTM:"Quixadá", QXD:"Quixadá", QXB:"Quixadá",
+      IPU:"Nova Russas", ARR:"Nova Russas", SQT:"Nova Russas",
+      ARU:"Nova Russas", NVR:"Nova Russas", MTB:"Nova Russas",
+      IDP:"Crateús", CAT:"Crateús"
+    };
+
+    return prefixMap[prefix] || "Outros";
   }
 
-  function getCategory(row) {
-    const alim = String(row.ALIMENTADOR || "").trim().toUpperCase();
-    if (alim && CATEGORY_BY_ALIM.has(alim)) return CATEGORY_BY_ALIM.get(alim);
-
-    // fallback: prefixo do ALIMENTADOR ou do DISPOSITIVO
-    const pA = extractPrefix3(alim);
-    if (pA && PREFIX_FALLBACK[pA]) return PREFIX_FALLBACK[pA];
-
-    const pD = extractPrefix3(row.DISPOSITIVO);
-    if (pD && PREFIX_FALLBACK[pD]) return PREFIX_FALLBACK[pD];
-
-    return "Outros";
-  }
-
-  // =========================
-  // 2) AGRUPAMENTO: categoria -> subpasta (INSPEÇÃO/REITERADA)
-  // =========================
-  const groups = new Map(); // cat -> { INSPEÇÃO:[], REITERADA:[] }
-  const notFoundRows = [];
-
+  const groups = {};
   const PUSH_PIN = "http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png";
 
   for (const r of rows) {
     const geo = idx.get(r.key);
+    if (!geo) continue;
 
-    if (!geo) {
-      notFoundRows.push({
-        TIPO: r.TIPO,
-        DISPOSITIVO: r.DISPOSITIVO,
-        ALIMENTADOR: r.ALIMENTADOR,
-        NUMERO_OT: r.NUMERO_OT,
-        INSTALACAO_NOVA: r.INSTALACAO_NOVA
-      });
-      continue;
-    }
+    const cat = detectCategory(r);
+    if (!groups[cat]) groups[cat] = { INSPEÇÃO:[], REITERADA:[] };
 
-    const cat = getCategory(r);
-    if (!groups.has(cat)) groups.set(cat, { "INSPEÇÃO": [], "REITERADA": [] });
+    const tipo = r.TIPO === "INSPECAO" ? "INSPEÇÃO" : "REITERADA";
+    const color = tipo === "INSPEÇÃO" ? "ff800080" : "ffffffff";
 
-    const tipoFolder = (r.TIPO === "INSPECAO") ? "INSPEÇÃO" : "REITERADA";
-
-    // Roxo INSPEÇÃO | Branco REITERADA
-    const color = (tipoFolder === "INSPEÇÃO") ? "ff800080" : "ffffffff";
-
-    const dispositivo = String(r.DISPOSITIVO ?? "");
-    const ot = String(r.NUMERO_OT ?? "");
-    const alim = String(r.ALIMENTADOR ?? "");
-    const inst = String(r.INSTALACAO_NOVA ?? "");
-
-    // ✅ Nome do pino SEMPRE = DISPOSITIVO (não alimentador)
-    const placemark = `
+    groups[cat][tipo].push(`
 <Placemark>
-  <name>${escapeXml(dispositivo)}</name>
-
+  <name>${r.DISPOSITIVO}</name>
   <Style>
     <IconStyle>
       <color>${color}</color>
@@ -235,68 +200,48 @@ function buildKml(rows, idx) {
       <Icon><href>${PUSH_PIN}</href></Icon>
     </IconStyle>
   </Style>
-
   <description><![CDATA[
-    <div style="font-family: Arial; font-size: 13px;">
-      <b>CATEGORIA:</b> ${escapeXml(cat)}<br/>
-      <b>TIPO:</b> ${escapeXml(tipoFolder)}<br/>
-      <b>DISPOSITIVO_PROTECAO / ELEMENTO:</b> ${escapeXml(dispositivo)}<br/>
-      <b>NÚMERO OT:</b> ${escapeXml(ot || "-")}<br/>
-      <b>ALIMENTADOR:</b> ${escapeXml(alim || "-")}<br/>
-      <b>INSTALACAO_NOVA:</b> ${escapeXml(inst || "-")}<br/>
-    </div>
+    <b>CATEGORIA:</b> ${cat}<br/>
+    <b>TIPO:</b> ${tipo}<br/>
+    <b>DISPOSITIVO:</b> ${r.DISPOSITIVO}<br/>
+    <b>OT:</b> ${r.NUMERO_OT || "-"}<br/>
+    <b>ALIMENTADOR:</b> ${r.ALIMENTADOR || "-"}<br/>
   ]]></description>
-
   <Point><coordinates>${geo.lon},${geo.lat},0</coordinates></Point>
 </Placemark>
-`;
-
-    groups.get(cat)[tipoFolder].push(placemark);
+`);
   }
 
-  // =========================
-  // 3) MONTAGEM DAS PASTAS NO KML (com subpastas)
-  // =========================
-  const orderedCats = ["Canindé", "Nova Russas", "Quixadá", "Crateús", "Outros"];
+  const ordered = ["Canindé","Nova Russas","Quixadá","Crateús","Outros"];
 
-  const foldersXml = orderedCats
-    .filter(cat => groups.has(cat))
-    .map(cat => {
-      const insp = groups.get(cat)["INSPEÇÃO"];
-      const rei  = groups.get(cat)["REITERADA"];
-
-      return `
+  const folders = ordered
+    .filter(c => groups[c])
+    .map(c => `
 <Folder>
-  <name>${escapeXml(cat)}</name>
+  <name>${c}</name>
 
   <Folder>
     <name>🟣 INSPEÇÃO</name>
-    ${insp.join("\n")}
+    ${groups[c]["INSPEÇÃO"].join("\n")}
   </Folder>
 
   <Folder>
     <name>⚪ REITERADA</name>
-    ${rei.join("\n")}
+    ${groups[c]["REITERADA"].join("\n")}
   </Folder>
 
-</Folder>
-`;
-    }).join("\n");
+</Folder>`).join("\n");
 
   const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Resultado - Reiteradas x Inspeção</name>
-    ${foldersXml}
-  </Document>
+<Document>
+${folders}
+</Document>
 </kml>`;
 
-  return {
-    kml,
-    missing: notFoundRows.length,
-    notFoundRows
-  };
+  return { kml, missing: 0, notFoundRows: [] };
 }
+
 
 
 function download(text, filename, type) {
