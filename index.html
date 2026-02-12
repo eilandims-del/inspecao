@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Merge Reiteradas x Inspeção + KML/KMZ</title>
+  <title>Conversor de Inspeção</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 24px; }
     h2 { margin-bottom: 6px; }
@@ -18,33 +18,33 @@
   </style>
 </head>
 <body>
-  <h2>Gerador: Planilha Resultado + KML (Google Earth)</h2>
+  <h2>Conversor de Inspeção</h2>
   <div class="hint small">
-    Fluxo: envia 2 planilhas → gera XLSX (exclusivos) → envia KML/KMZ geral → gera KML final (pins azul/verde).
+    Pino roxo = INSPEÇÃO // Pino branco = REITERADA.
   </div>
 
   <div class="box">
     <div class="row">
-      <label>1) Planilha INSPEÇÃO NORMAL (.xlsx/.xls)</label>
+      <label>1) Planilha PBM (.xlsx/.xls)</label>
       <input type="file" id="fileInspecao" accept=".xlsx,.xls" />
-      <div class="small">Lê colunas: E (Instalacao_nova), H (Numero_OT), AP (DISPOSITIVO_PROTECAO)</div>
+      <div class="small">- Dados PBM</div>
     </div>
 
     <div class="row">
-      <label>2) Planilha REITERADAS (.xlsx/.xls)</label>
+      <label>2) Planilha Reiteradas (.xlsx/.xls)</label>
       <input type="file" id="fileReiteradas" accept=".xlsx,.xls" />
-      <div class="small">Lê colunas: A (Elemento), C (ALIMENTADOR)</div>
+      <div class="small">- Dados Reiteradas</div>
     </div>
 
     <div class="row">
-      <label>3) KML/KMZ GERAL com todos os dispositivos (.kml/.kmz)</label>
+      <label>3) KML/KMZ Geral com todos os dispositivos (.kml/.kmz)</label>
       <input type="file" id="fileKmlGeral" accept=".kml,.kmz" />
       <div class="small">Busca as coordenadas usando <code>&lt;Placemark&gt;&lt;name&gt;</code> como chave do dispositivo</div>
     </div>
 
     <div class="row">
-      <button id="btnGerarPlanilha">GERAR PLANILHA (XLSX)</button>
-      <button id="btnGerarKml" disabled>GERAR KML (Google Earth)</button>
+      <button id="btnGerarPlanilha">GERAR PLANILHA</button>
+      <button id="btnGerarKml" disabled>GERAR KML</button>
     </div>
   </div>
 
