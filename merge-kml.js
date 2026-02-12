@@ -132,12 +132,32 @@ function escapeXml(s) {
 
 
 function buildKml(rows, idx) {
-  const CATEGORY_PREFIXES = {
-    "Canindé":     ["CND", "BVG", "INP", "MCA"],
-    "Nova Russas": ["ARU", "SQT", "MTB", "IPU", "ARR", "NVR"],
-    "Crateús":     ["CAT", "IDP"],
-    "Quixadá":     ["BNB", "QXD", "QXB", "JTM"]
-  };
+  const CATEGORY_BY_ALIM = new Map([
+    // CANINDÉ
+    ["CND01C1","Canindé"], ["CND01C2","Canindé"], ["CND01C3","Canindé"], ["CND01C4","Canindé"], ["CND01C5","Canindé"], ["CND01C6","Canindé"],
+    ["INP01N3","Canindé"], ["INP01N4","Canindé"], ["INP01N5","Canindé"],
+    ["BVG01P1","Canindé"], ["BVG01P2","Canindé"], ["BVG01P3","Canindé"], ["BVG01P4","Canindé"],
+    ["MCA01L1","Canindé"], ["MCA01L2","Canindé"], ["MCA01L3","Canindé"],
+  
+    // QUIXADÁ
+    ["BNB01Y2","Quixadá"],
+    ["JTM01N2","Quixadá"],
+    ["QXD01P1","Quixadá"], ["QXD01P2","Quixadá"], ["QXD01P3","Quixadá"], ["QXD01P4","Quixadá"], ["QXD01P5","Quixadá"], ["QXD01P6","Quixadá"],
+    ["QXB01N2","Quixadá"], ["QXB01N3","Quixadá"], ["QXB01N4","Quixadá"], ["QXB01N5","Quixadá"], ["QXB01N6","Quixadá"], ["QXB01N7","Quixadá"],
+  
+    // NOVA RUSSAS
+    ["IPU01L2","Nova Russas"], ["IPU01L3","Nova Russas"], ["IPU01L4","Nova Russas"], ["IPU01L5","Nova Russas"],
+    ["ARR01L1","Nova Russas"], ["ARR01L2","Nova Russas"], ["ARR01L3","Nova Russas"],
+    ["SQT01F2","Nova Russas"], ["SQT01F3","Nova Russas"], ["SQT01F4","Nova Russas"],
+    ["ARU01Y1","Nova Russas"], ["ARU01Y2","Nova Russas"], ["ARU01Y4","Nova Russas"], ["ARU01Y5","Nova Russas"], ["ARU01Y6","Nova Russas"], ["ARU01Y7","Nova Russas"], ["ARU01Y8","Nova Russas"],
+    ["NVR01N1","Nova Russas"], ["NVR01N2","Nova Russas"], ["NVR01N3","Nova Russas"], ["NVR01N5","Nova Russas"],
+    ["MTB01S2","Nova Russas"], ["MTB01S3","Nova Russas"], ["MTB01S4","Nova Russas"],
+  
+    // CRATEÚS
+    ["IDP01I1","Crateús"], ["IDP01I2","Crateús"], ["IDP01I3","Crateús"], ["IDP01I4","Crateús"],
+    ["CAT01C1","Crateús"], ["CAT01C2","Crateús"], ["CAT01C3","Crateús"], ["CAT01C4","Crateús"], ["CAT01C5","Crateús"], ["CAT01C6","Crateús"], ["CAT01C7","Crateús"],
+  ]);
+  
 
   // prefixo -> categoria
   const prefixToCategory = new Map();
@@ -152,13 +172,33 @@ function buildKml(rows, idx) {
   }
 
   function getCategory(row) {
-    const p1 = extractPrefix3(row.DISPOSITIVO);
-    const p2 = extractPrefix3(row.ALIMENTADOR);
-
-    if (p1 && prefixToCategory.has(p1)) return prefixToCategory.get(p1);
-    if (p2 && prefixToCategory.has(p2)) return prefixToCategory.get(p2);
+    const alim = String(row.ALIMENTADOR || "").trim().toUpperCase();
+    if (alim && CATEGORY_BY_ALIM.has(alim)) return CATEGORY_BY_ALIM.get(alim);
+  
+    // fallback: tenta prefixo 3 letras do ALIMENTADOR ou do DISPOSITIVO
+    const tryPrefix = (val) => {
+      const s = String(val || "").toUpperCase();
+      const m = s.match(/[A-Z]{3}/);
+      return m ? m[0] : "";
+    };
+  
+    const pA = tryPrefix(alim);
+    const pD = tryPrefix(row.DISPOSITIVO);
+  
+    // fallback simples por prefixo (mantém seu comportamento antigo)
+    const prefixMap = {
+      "CND":"Canindé","INP":"Canindé","BVG":"Canindé","MCA":"Canindé",
+      "BNB":"Quixadá","JTM":"Quixadá","QXD":"Quixadá","QXB":"Quixadá",
+      "IPU":"Nova Russas","ARR":"Nova Russas","SQT":"Nova Russas","ARU":"Nova Russas","NVR":"Nova Russas","MTB":"Nova Russas",
+      "IDP":"Crateús","CAT":"Crateús",
+    };
+  
+    if (pA && prefixMap[pA]) return prefixMap[pA];
+    if (pD && prefixMap[pD]) return prefixMap[pD];
+  
     return "Outros";
   }
+  
 
   // ===== Agrupamento: categoria -> tipo -> placemarks =====
   // Ex.: groups.get("Canindé").get("INSPECAO") => [xml, xml...]
