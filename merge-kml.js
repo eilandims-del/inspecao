@@ -281,7 +281,7 @@ function download(data, filename, type) {
   URL.revokeObjectURL(url);
 }
 
-function downloadXlsxNotFound(rows, filename) {
+/* function downloadXlsxNotFound(rows, filename) {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "NAO_ENCONTRADOS");
@@ -300,7 +300,7 @@ function downloadXlsxNotFound(rows, filename) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-}
+} */
 
 $("btnGerarPlanilha").addEventListener("click", async () => {
   const fIns = $("fileInspecao").files[0];
@@ -358,17 +358,13 @@ $("btnGerarKml").addEventListener("click", async () => {
   setStatus("Gerando KML final...");
 
   const idx = await readKmlIndex(fKml);
-  const { kml, missing, notFoundRows } = buildKml(mergedRows, idx);
+  const { kml, missing } = buildKml(mergedRows, idx);
 
   download(kml, "resultado_google_earth.kml", "application/vnd.google-earth.kml+xml");
-
-  if (missing > 0) {
-    downloadXlsxNotFound(notFoundRows, "nao_encontrados_no_kml.xlsx");
-  }
-
+  
   setStatus(
     `KML gerado com sucesso.\n` +
-    `Sem coordenadas encontradas: ${missing}\n` +
-    (missing > 0 ? `➡️ Baixei também: nao_encontrados_no_kml.xlsx` : "")
+    `Sem coordenadas encontradas: ${missing}`
   );
+  
 });
