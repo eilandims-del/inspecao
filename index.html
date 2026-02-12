@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Merge Reiteradas x Inspeção + KML/KMZ</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    h2 { margin-bottom: 6px; }
+    .row { margin: 14px 0; }
+    label { display:block; font-weight: 700; margin-bottom: 6px; }
+    input[type="file"] { padding: 6px 0; }
+    button { margin-right: 8px; padding: 10px 14px; cursor: pointer; }
+    .status { margin-top: 14px; white-space: pre-wrap; background:#f6f6f6; padding:12px; border-radius:10px; }
+    .small { color:#666; font-size: 12px; margin-top: 2px; }
+    .hint { margin-top: 6px; color:#333; }
+    .box { padding: 12px; border: 1px solid #ddd; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <h2>Gerador: Planilha Resultado + KML (Google Earth)</h2>
+  <div class="hint small">
+    Fluxo: envia 2 planilhas → gera XLSX (exclusivos) → envia KML/KMZ geral → gera KML final (pins azul/verde).
+  </div>
+
+  <div class="box">
+    <div class="row">
+      <label>1) Planilha INSPEÇÃO NORMAL (.xlsx/.xls)</label>
+      <input type="file" id="fileInspecao" accept=".xlsx,.xls" />
+      <div class="small">Lê colunas: E (Instalacao_nova), H (Numero_OT), AP (DISPOSITIVO_PROTECAO)</div>
+    </div>
+
+    <div class="row">
+      <label>2) Planilha REITERADAS (.xlsx/.xls)</label>
+      <input type="file" id="fileReiteradas" accept=".xlsx,.xls" />
+      <div class="small">Lê colunas: A (Elemento), C (ALIMENTADOR)</div>
+    </div>
+
+    <div class="row">
+      <label>3) KML/KMZ GERAL com todos os dispositivos (.kml/.kmz)</label>
+      <input type="file" id="fileKmlGeral" accept=".kml,.kmz" />
+      <div class="small">Busca as coordenadas usando <code>&lt;Placemark&gt;&lt;name&gt;</code> como chave do dispositivo</div>
+    </div>
+
+    <div class="row">
+      <button id="btnGerarPlanilha">GERAR PLANILHA (XLSX)</button>
+      <button id="btnGerarKml" disabled>GERAR KML (Google Earth)</button>
+    </div>
+  </div>
+
+  <div class="status" id="status">Status: aguardando arquivos...</div>
+
+  <!-- SheetJS (Excel) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- fflate (para abrir KMZ) -->
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+
+  <script type="module" src="./merge-kml.js"></script>
+</body>
+</html>
