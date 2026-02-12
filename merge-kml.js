@@ -124,28 +124,48 @@ function buildKml(rows, idx) {
     const geo = idx.get(r.key);
     if (!geo) { missing++; continue; }
 
-    const color = r.TIPO === "INSPECAO" ? "ff800080" : "ffffffff"; 
-    // Roxo = ff800080 | Branco = ffffffff
+    // Roxo = INSPECAO | Branco = REITERADA
+    const color = r.TIPO === "INSPECAO" ? "ff800080" : "ffffffff";
+
+    const dispositivo = (r.DISPOSITIVO ?? "").toString();
+    const ot = (r.NUMERO_OT ?? "").toString();
+    const alim = (r.ALIMENTADOR ?? "").toString();
+    const inst = (r.INSTALACAO_NOVA ?? "").toString();
 
     placemarks.push(`
 <Placemark>
-  <name>${r.DISPOSITIVO}</name>
+  <name>${dispositivo}</name>
+
   <Style>
     <IconStyle>
       <color>${color}</color>
-      <scale>1.6</scale>
+      <scale>1.8</scale>
       <Icon>
         <href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href>
       </Icon>
     </IconStyle>
   </Style>
+
   <description>
     <![CDATA[
-    <b>TIPO:</b> ${r.TIPO}<br/>
-    <b>OT:</b> ${r.NUMERO_OT}<br/>
-    <b>ALIMENTADOR:</b> ${r.ALIMENTADOR}<br/>
+      <div style="font-family: Arial; font-size: 13px;">
+        <b>TIPO:</b> ${r.TIPO}<br/>
+        <b>DISPOSITIVO_PROTECAO / ELEMENTO:</b> ${dispositivo}<br/>
+        <b>NÚMERO OT:</b> ${ot || "-"}<br/>
+        <b>ALIMENTADOR:</b> ${alim || "-"}<br/>
+        <b>INSTALACAO_NOVA:</b> ${inst || "-"}<br/>
+      </div>
     ]]>
   </description>
+
+  <ExtendedData>
+    <Data name="TIPO"><value>${r.TIPO}</value></Data>
+    <Data name="DISPOSITIVO"><value>${dispositivo}</value></Data>
+    <Data name="NUMERO_OT"><value>${ot}</value></Data>
+    <Data name="ALIMENTADOR"><value>${alim}</value></Data>
+    <Data name="INSTALACAO_NOVA"><value>${inst}</value></Data>
+  </ExtendedData>
+
   <Point>
     <coordinates>${geo.lon},${geo.lat},0</coordinates>
   </Point>
@@ -157,12 +177,14 @@ function buildKml(rows, idx) {
     kml: `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
-${placemarks.join("\n")}
+  <name>Resultado - Reiteradas x Inspeção</name>
+  ${placemarks.join("\n")}
 </Document>
 </kml>`,
     missing
   };
 }
+
 
 function download(text, filename, type) {
   const blob = new Blob([text], { type });
