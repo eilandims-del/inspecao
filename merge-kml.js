@@ -121,75 +121,147 @@ function mergeAndDiff(ins, rei) {
   ];
 }
 
+function escapeXml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+
 function buildKml(rows, idx) {
-  const placemarks = [];
+  const CATEGORY_PREFIXES = {
+    "Canindé":     ["CND", "BVG", "INP", "MCA"],
+    "Nova Russas": ["ARU", "SQT", "MTB", "IPU", "ARR", "NVR"],
+    "Crateús":     ["CAT", "IDP"],
+    "Quixadá":     ["BNB", "QXD", "QXB", "JTM"]
+  };
+
+  // prefixo -> categoria
+  const prefixToCategory = new Map();
+  for (const [cat, prefixes] of Object.entries(CATEGORY_PREFIXES)) {
+    for (const p of prefixes) prefixToCategory.set(p.toUpperCase(), cat);
+  }
+
+  function extractPrefix3(value) {
+    const s = String(value ?? "").trim().toUpperCase();
+    const m = s.match(/[A-Z]{3}/); // primeira sequência de 3 letras
+    return m ? m[0] : "";
+  }
+
+  function getCategory(row) {
+    const p1 = extractPrefix3(row.DISPOSITIVO);
+    const p2 = extractPrefix3(row.ALIMENTADOR);
+
+    if (p1 && prefixToCategory.has(p1)) return prefixToCategory.get(p1);
+    if (p2 && prefixToCategory.has(p2)) return prefixToCategory.get(p2);
+    return "Outros";
+  }
+
+  // ===== Agrupamento: categoria -> tipo -> placemarks =====
+  // Ex.: groups.get("Canindé").get("INSPECAO") => [xml, xml...]
+  const groups = new Map();
   let missing = 0;
+
+  const PUSH_PIN = "http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png";
 
   for (const r of rows) {
     const geo = idx.get(r.key);
     if (!geo) { missing++; continue; }
 
-    // Roxo = INSPECAO | Branco = REITERADA
-    const color = r.TIPO === "INSPECAO" ? "ff800080" : "ffffffff";
+    const cat = getCategory(r);
+    const tipo = r.TIPO === "INSPECAO" ? "INSPEÇÃO" : "REITERADA";
+
+    if (!groups.has(cat)) groups.set(cat, new Map([["INSPEÇÃO", []], ["REITERADA", []]]));
+    const sub = groups.get(cat);
+
+    // Roxo INSPEÇÃO | Branco REITERADA
+    const color = (tipo === "INSPEÇÃO") ? "ff800080" : "ffffffff";
 
     const dispositivo = (r.DISPOSITIVO ?? "").toString();
     const ot = (r.NUMERO_OT ?? "").toString();
     const alim = (r.ALIMENTADOR ?? "").toString();
     const inst = (r.INSTALACAO_NOVA ?? "").toString();
 
-    placemarks.push(`
+    const placemark = `
 <Placemark>
-  <name>${dispositivo}</name>
+  <name>${escapeXml(dispositivo)}</name>
 
   <Style>
     <IconStyle>
       <color>${color}</color>
       <scale>1.8</scale>
-      <Icon>
-        <href>http://maps.google.com/mapfiles/kml/pushpin/wht-pushpin.png</href>
-      </Icon>
+      <Icon><href>${PUSH_PIN}</href></Icon>
     </IconStyle>
   </Style>
 
-  <description>
-    <![CDATA[
-      <div style="font-family: Arial; font-size: 13px;">
-        <b>TIPO:</b> ${r.TIPO}<br/>
-        <b>DISPOSITIVO_PROTECAO / ELEMENTO:</b> ${dispositivo}<br/>
-        <b>NÚMERO OT:</b> ${ot || "-"}<br/>
-        <b>ALIMENTADOR:</b> ${alim || "-"}<br/>
-        <b>INSTALACAO_NOVA:</b> ${inst || "-"}<br/>
-      </div>
-    ]]>
-  </description>
+  <description><![CDATA[
+    <div style="font-family: Arial; font-size: 13px;">
+      <b>CATEGORIA:</b> ${escapeXml(cat)}<br/>
+      <b>TIPO:</b> ${escapeXml(tipo)}<br/>
+      <b>DISPOSITIVO_PROTECAO / ELEMENTO:</b> ${escapeXml(dispositivo)}<br/>
+      <b>NÚMERO OT:</b> ${escapeXml(ot || "-")}<br/>
+      <b>ALIMENTADOR:</b> ${escapeXml(alim || "-")}<br/>
+      <b>INSTALACAO_NOVA:</b> ${escapeXml(inst || "-")}<br/>
+    </div>
+  ]]></description>
 
   <ExtendedData>
-    <Data name="TIPO"><value>${r.TIPO}</value></Data>
-    <Data name="DISPOSITIVO"><value>${dispositivo}</value></Data>
-    <Data name="NUMERO_OT"><value>${ot}</value></Data>
-    <Data name="ALIMENTADOR"><value>${alim}</value></Data>
-    <Data name="INSTALACAO_NOVA"><value>${inst}</value></Data>
+    <Data name="CATEGORIA"><value>${escapeXml(cat)}</value></Data>
+    <Data name="TIPO"><value>${escapeXml(tipo)}</value></Data>
+    <Data name="DISPOSITIVO"><value>${escapeXml(dispositivo)}</value></Data>
+    <Data name="NUMERO_OT"><value>${escapeXml(ot)}</value></Data>
+    <Data name="ALIMENTADOR"><value>${escapeXml(alim)}</value></Data>
+    <Data name="INSTALACAO_NOVA"><value>${escapeXml(inst)}</value></Data>
   </ExtendedData>
 
-  <Point>
-    <coordinates>${geo.lon},${geo.lat},0</coordinates>
-  </Point>
+  <Point><coordinates>${geo.lon},${geo.lat},0</coordinates></Point>
 </Placemark>
-`);
+`;
+
+    sub.get(tipo).push(placemark);
   }
 
-  return {
-    kml: `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-<Document>
-  <name>Resultado - Reiteradas x Inspeção</name>
-  ${placemarks.join("\n")}
-</Document>
-</kml>`,
-    missing
-  };
-}
+  // Ordem fixa
+  const orderedCats = ["Canindé", "Nova Russas", "Crateús", "Quixadá", "Outros"];
 
+  function folderBlock(catName, tipoName, placemarks) {
+    const colorDot = (tipoName === "INSPEÇÃO") ? "🟣" : "⚪";
+    return `
+<Folder>
+  <name>${escapeXml(colorDot + " " + tipoName)}</name>
+  ${placemarks.join("\n")}
+</Folder>`;
+  }
+
+  const folders = orderedCats
+    .filter(cat => groups.has(cat))
+    .map(cat => {
+      const sub = groups.get(cat);
+      const insp = sub.get("INSPEÇÃO") || [];
+      const rei = sub.get("REITERADA") || [];
+
+      return `
+<Folder>
+  <name>${escapeXml(cat)}</name>
+  ${folderBlock(cat, "INSPEÇÃO", insp)}
+  ${folderBlock(cat, "REITERADA", rei)}
+</Folder>`;
+    })
+    .join("\n");
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Resultado - Reiteradas x Inspeção</name>
+    ${folders}
+  </Document>
+</kml>`;
+
+  return { kml, missing };
+}
 
 function download(text, filename, type) {
   const blob = new Blob([text], { type });
