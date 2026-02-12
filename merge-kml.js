@@ -15,12 +15,17 @@ function normalizeKey(v) {
     .replace(/[^A-Z0-9]/g, "");
 }
 
-async function readXlsxFile(file) {
+async function readXlsxWorkbook(file) {
   const ab = await file.arrayBuffer();
-  const wb = XLSX.read(ab, { type: "array" });
-  const ws = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.read(ab, { type: "array" });
+}
+
+function sheetToRows(wb, sheetName) {
+  const ws = wb.Sheets[sheetName];
+  if (!ws) throw new Error(`Aba "${sheetName}" não encontrada no arquivo.`);
   return XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 }
+
 
 function colIndex(letter) {
   let n = 0;
@@ -207,8 +212,14 @@ $("btnGerarPlanilha").addEventListener("click", async () => {
 
   setStatus("Processando planilhas...");
 
-  const ins = buildFromInspecao(await readXlsxFile(fIns));
-  const rei = buildFromReiteradas(await readXlsxFile(fRei));
+  const wbIns = await readXlsxWorkbook(fIns);
+  const insRows = sheetToRows(wbIns, "PBM-CE - Inspecao"); // ✅ força a aba certa
+  const ins = buildFromInspecao(insRows);
+  
+  const wbRei = await readXlsxWorkbook(fRei);
+  const reiRows = sheetToRows(wbRei, wbRei.SheetNames[0]); // reiteradas = primeira aba (padrão)
+  const rei = buildFromReiteradas(reiRows);
+  
 
   mergedRows = mergeAndDiff(ins, rei);
 
